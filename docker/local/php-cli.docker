@@ -1,0 +1,37 @@
+FROM php:7.4-fpm
+
+RUN apt-get update --fix-missing
+
+# Install socket ext
+#RUN #docker-php-ext-install sockets
+
+#Install intl
+RUN apt-get install -y libicu-dev \
+    && docker-php-ext-install -j$(nproc) intl
+
+# Install librdkafka
+RUN apt-get install -y librdkafka-dev \
+    && docker-php-ext-install -j$(nproc) intl
+
+# Install rdkafka
+RUN pecl install -o -f rdkafka \
+	&& rm -rf /tmp/pear \
+	&& docker-php-ext-enable rdkafka
+
+# Enable pcntl ext
+RUN docker-php-ext-install pcntl
+
+COPY ./docker/local/php/default.ini /usr/local/etc/php/conf.d/default.ini
+
+# Install supervisor
+RUN  apt-get update && apt-get install -y supervisor
+COPY ./docker/local/supervisord.d/* /etc/supervisor/conf.d/
+
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/bin --filename=composer --version=2.3.5 --quiet
+ENV COMPOSER_ALLOW_SUPERUSER 1
+WORKDIR /var/www
+# Подменим id своего пользователя к www-data
+ARG UID=33
+ARG GID=33
+RUN usermod -u $UID www-data
+RUN groupmod -g $GID www-data

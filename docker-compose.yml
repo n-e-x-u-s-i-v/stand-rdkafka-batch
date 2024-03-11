@@ -1,0 +1,47 @@
+version: '3.7'
+services:
+  zookeeper:
+    image: zookeeper:3.7
+    restart: always
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper:2888:3888;2181
+    ports:
+      - "2181:2181"
+  broker:
+    image: confluentinc/cp-kafka:7.0.1
+    volumes:
+      - ./docker/local/kafka-server/auth.properties:/etc/kafka/secrets/auth.properties
+      - ./docker/local/kafka-server/kafka_server_jaas.conf:/etc/kafka/secrets/kafka_server_jaas.conf
+    depends_on:
+      - zookeeper
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092,SASL_PLAINTEXT://broker:9093
+      KAFKA_LISTENERS: PLAINTEXT://broker:19092,SASL_PLAINTEXT://broker:9093
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      ZOOKEEPER_SASL_ENABLED: 'false'
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf
+#      KAFKA_LOG_CLEANUP_POLICY: 'compact'
+#      KAFKA_LOG_CLEANER_MAX_COMPACTION_LAG_MS: 100
+  php-cli-1:
+    build:
+      context: ./
+      dockerfile: ./docker/local/php-cli.docker
+      args:
+        - UID=${UID}
+        - GID=${GID}
+    volumes:
+      - ./:/var/www
+    tty: true
+    #command: sh -c "/usr/bin/supervisord -c /etc/supervisor/supervisord.conf && /bin/bash"
